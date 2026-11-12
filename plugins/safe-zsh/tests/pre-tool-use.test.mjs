@@ -90,6 +90,30 @@ test('known over-matches, listed in the README limits: an escaped \\${(, a comme
   assertDenied("cat > a.zsh <<'EOF'\nprint -l ${(s/:/)PATH}\nEOF")
 })
 
+test('the bash indirect expansion ${!name}, which zsh stops at with bad substitution, is denied with a POSIX rewrite', () => {
+  const d = decide('for k in A B; do v="${!k:-}"; [ -n "$v" ] && printf \'%s=%s\\n\' "$k" "$v"; done > env')
+  assert.ok(d)
+  assert.equal(d.hookSpecificOutput.permissionDecision, 'deny')
+  const reason = d.hookSpecificOutput.permissionDecisionReason
+  assert.match(reason, /^safe-zsh: /)
+  assert.match(reason, /bad substitution/)
+  assert.ok(reason.includes('printenv "$name"'))
+  assertDenied('echo ${!arr[@]}')
+  assertDenied('echo ${!_x}')
+})
+
+test('${!} (the last background pid), ${!k} inside single quotes and a bare $! are let through', () => {
+  assert.equal(run('sleep 1 & echo ${!} $!'), '')
+  assert.equal(run(`bash -c 'for k in A; do echo "\${!k}"; done'`), '')
+})
+
+test('zsh really stops at ${!name}: the deny is not guarding against nothing', () => {
+  const r = spawnSync('zsh', ['-fc', 'k=HOME; echo ${!k}; echo after'], { encoding: 'utf8' })
+  assert.notEqual(r.status, 0)
+  assert.match(r.stderr, /bad substitution/)
+  assert.ok(!r.stdout.includes('after'))
+})
+
 test('escaped double quotes in the command do not cut it short', () => {
   assertDenied('echo "say \\"hi\\"" ${(f)x}')
   assert.equal(run('echo "say \\"${HOME}\\""'), '')
@@ -115,7 +139,7 @@ test('input without a Bash command exits 0 and prints nothing', () => {
 test('the hook can only deny: its script has no allow or ask decision', () => {
   const script = readFileSync(HOOK, 'utf8')
   const decisions = [...script.matchAll(/"permissionDecision":"(\w+)"/g)].map(m => m[1])
-  assert.deepEqual(decisions, ['deny'])
+  assert.deepEqual(decisions, ['deny', 'deny'])
 })
 
 test('hooks.json runs the PreToolUse hook for Bash and keeps the SessionStart hook', () => {

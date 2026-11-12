@@ -115,10 +115,13 @@ test('an unquoted variable is split into words, as bash does', () => {
   })
 })
 
-test('under zsh, the hook prints two lines for the model: how to start a child zsh, and no ${(flags)...}', () => {
+test('under zsh, the hook prints three lines for the model: how to start a child zsh, no ${(flags)...}, no ${!name}', () => {
   const out = hint({ SHELL: '/bin/zsh', CLAUDE_CODE_SHELL: '' })
-  const [child, flags, ...rest] = out.split('\n').filter(Boolean)
+  const [child, flags, indirect, ...rest] = out.split('\n').filter(Boolean)
   assert.deepEqual(rest, [])
+  assert.match(indirect, /\$\{!name\}/)
+  assert.match(indirect, /bad substitution/)
+  assert.ok(indirect.includes('printenv "$name"'))
   assert.match(child, /zsh -c/)
   // The hint and the line the hook writes must name the same options.
   assert.ok(LINE.includes(OPTS))

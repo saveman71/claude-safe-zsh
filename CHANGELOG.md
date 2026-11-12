@@ -4,6 +4,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-12
+
+### Added
+
+- The PreToolUse hook also denies the bash indirect expansion `${!name}` and `${!array[@]}`. zsh stops at it with `bad substitution`, so a loop or subshell built on it leaves its output empty while the commands after it still run. The reason suggests `printenv "$name"` or `bash -c '...'`. `${!}`, the last background pid, is valid in zsh and stays allowed
+- Under zsh, the SessionStart hook prints a third line for the model about `${!name}`
+
 ## [0.2.0] - 2026-11-05
 
 ### Added
